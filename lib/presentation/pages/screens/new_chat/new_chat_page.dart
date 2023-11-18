@@ -1,3 +1,4 @@
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:call_app/presentation/core/model/chat_user.dart';
 import 'package:call_app/presentation/pages/screens/new_chat/new_chat_controller.dart';
 import 'package:call_app/presentation/pages/screens/single_chat/single_chat_page.dart';
@@ -10,7 +11,8 @@ import '../../../widgets/loading.dart';
 
 class NewChatPage extends StatefulWidget {
   final ChatUser localUser;
-  const NewChatPage(this.localUser, {Key? key}) : super(key: key);
+  final ReceivedAction? receivedAction;
+  const NewChatPage(this.localUser,this.receivedAction, {Key? key}) : super(key: key);
 
   @override
   State<NewChatPage> createState() => _NewChatPageState();
@@ -68,8 +70,7 @@ class _NewChatPageState extends State<NewChatPage> {
         await _controller.getExistingChat(widget.localUser, chatPartner);
 
     chat ??= await _controller.createNewChat(widget.localUser, chatPartner);
-
     await Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (context) => SingleChatPage(chat!, widget.localUser)));
+        builder: (context) => SingleChatPage(chat!, widget.localUser,widget.receivedAction)));
   }
 }

@@ -17,6 +17,7 @@ class _LoginPageState extends State<LoginPage> {
   TextEditingController? _passwordConfirmController;
 
   bool _registerMode = false;
+  bool _isButtonLoading = false;
 
   @override
   void initState() {
@@ -85,13 +86,23 @@ class _LoginPageState extends State<LoginPage> {
           Center(
               child: SizedBox(
             width: 100,
-            child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:  Color(0xFF075E54), // Set the background color of the button
-                ),
-                child: Text(_registerMode ? "Register" : "Login"),
-                onPressed: () async =>
-                    _registerMode ? await _register() : await _login()),
+            child:ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFF075E54),
+              ),
+              child: _isButtonLoading
+                  ? CircularProgressIndicator(color: Colors.white)
+                  : Text(_registerMode ? "Register" : "Login"),
+              onPressed: () async {
+                setState(() {
+                  _isButtonLoading = true;
+                });
+                _registerMode ? await _register() : await _login();
+                setState(() {
+                  _isButtonLoading = false;
+                });
+              },
+            ),
           )),
           const SizedBox(height: 20),
           TextButton(
@@ -118,7 +129,7 @@ class _LoginPageState extends State<LoginPage> {
       _passwordConfirmController?.text = "";
 
       await Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => ChatOverviewPage(user)));
+          MaterialPageRoute(builder: (context) => ChatOverviewPage(user,null)));
     } on FirebaseAuthException catch (ex) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text(ex.message ?? "")));

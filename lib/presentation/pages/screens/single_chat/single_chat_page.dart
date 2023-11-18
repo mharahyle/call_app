@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:call_app/presentation/pages/screens/single_chat/single_chat_controller.dart';
 import 'package:call_app/presentation/pages/screens/single_chat/widgets/chat_message_widget.dart';
 import 'package:call_app/presentation/pages/screens/single_chat/widgets/send_message_field_widget.dart';
@@ -8,6 +11,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../../main.dart';
+import '../../../core/model/call.dart';
 import '../../../core/model/chat.dart';
 import '../../../core/model/chat_user.dart';
 import '../../../widgets/call_option.dart';
@@ -17,8 +21,9 @@ import '../video_call/video_call_page.dart';
 class SingleChatPage extends StatefulWidget {
   final Chat chat;
   final ChatUser user;
+  final ReceivedAction? receivedAction;
 
-  const SingleChatPage(this.chat, this.user, {Key? key}) : super(key: key);
+  const SingleChatPage(this.chat, this.user,this.receivedAction, {Key? key}) : super(key: key);
 
   @override
 
@@ -32,8 +37,6 @@ class _SingleChatPageState extends State<SingleChatPage> {
     setState(() => _isJoining = true);
    // await dotenv.load(fileName: "functions/.env");
     final appId = "548f443b3f7d4a5987b0b1bb7ba5a4d3";
-
-
     setState(() => _isJoining = false);
     if (context.mounted) {
       Navigator.of(context).pop();
@@ -44,6 +47,16 @@ class _SingleChatPageState extends State<SingleChatPage> {
               token: token,
               channelName: 'Simple Call App',
             user: widget.user,
+            call:  CallModel(
+              id: null,
+              channel: "video${widget.user.id}",
+              caller: widget.user.name,
+              called: widget.user.id,
+              active: null,
+              accepted: null,
+              rejected: null,
+              connected: null,
+            ),
           ),
         ),
       );
@@ -98,6 +111,8 @@ class _SingleChatPageState extends State<SingleChatPage> {
       debugPrint('Error generating token: $e');
     }
   }
+
+
   @override
   Widget build(BuildContext context) {
     return Container(

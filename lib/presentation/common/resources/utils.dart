@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/widgets.dart';
 
 class ResponsiveUtils {
@@ -24,3 +25,10 @@ class AgoraUser {
     this.view,
   });
 }
+
+
+CollectionReference usersCollection =
+FirebaseFirestore.instance.collection("users");
+
+CollectionReference callsCollection =
+FirebaseFirestore.instance.collection("calls");

@@ -4,12 +4,16 @@ import 'dart:math';
 
 
 import 'package:agora_rtc_engine/rtc_engine.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:agora_rtc_engine/rtc_local_view.dart' as rtc_local_view;
 import 'package:agora_rtc_engine/rtc_remote_view.dart' as rtc_remote_view;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../common/resources/utils.dart';
+import '../../../core/model/call.dart';
 import '../../../core/model/chat_user.dart';
 import '../../../widgets/call_row_button.dart';
 
@@ -21,13 +25,15 @@ class VideoCallPage extends StatefulWidget {
     required this.appId,
     required this.token,
     required this.channelName,
-    required this.user
+    required this.user,
+    required this.call,
   });
 
   final String appId;
   final String token;
   final String channelName;
   final ChatUser user;
+  final CallModel call;
 
   @override
   State<VideoCallPage> createState() => _VideoCallPageState();
@@ -37,11 +43,15 @@ class _VideoCallPageState extends State<VideoCallPage> {
   late final RtcEngine _agoraEngine;
   late final _users = <ChatUser>{};
   late double _viewAspectRatio;
-
+  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
   int? _currentUid;
   bool _isMicEnabled = false;
   bool _isCameraEnabled = false;
   bool _isJoining = false;
+  String? callID;
+  bool localUserJoined = false;
+  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+
 
   Future<void> _getMicPermissions() async {
     if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -74,6 +84,8 @@ class _VideoCallPageState extends State<VideoCallPage> {
   void initState() {
     _getPermissions();
     _initialize();
+    callID = widget.call.id;
+    _initializeFirebaseMessaging();
     super.initState();
   }
 
@@ -82,6 +94,38 @@ class _VideoCallPageState extends State<VideoCallPage> {
     _users.clear();
     _disposeAgora();
     super.dispose();
+  }
+  // Initialize Firebase Messaging
+  void _initializeFirebaseMessaging() {
+    _firebaseMessaging.getToken().then((token) {
+      print("Firebase Messaging Token: $token");
+      // You can send this token to your server for sending push notifications
+    });
+
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      // Handle incoming message (notification)
+      // You can use the message data to determine if it's a call notification
+      // and show the overlay for incoming calls.
+    });
+
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      // Handle when the app is opened by tapping the notification.
+      // You can navigate to the call screen here.
+    });
+
+    FirebaseMessaging.onBackgroundMessage(_handleBackgroundMessage);
+
+    _firebaseMessaging.requestPermission(
+      sound: true,
+      badge: true,
+      alert: true,
+      provisional: false,
+    );
+  }
+
+  Future<void> _handleBackgroundMessage(RemoteMessage message) async {
+    // Handle the background message (notification) when the app is in the background
+    print("Handling background message: ${message.messageId}");
   }
 
   Future<void> _disposeAgora() async {
@@ -107,7 +151,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
       publishLocalVideo: _isCameraEnabled,
     );
     await _agoraEngine.joinChannel(
-      widget.token,
+      null,
       widget.channelName,
       null,
       0,
@@ -139,6 +183,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
         debugPrint(info);
         setState(() {
           _currentUid = uid;
+
           _users.add(
 
             ChatUser(
@@ -151,6 +196,10 @@ class _VideoCallPageState extends State<VideoCallPage> {
             chatIds: widget.user.chatIds,
             ),
           );
+          if (widget.call.id == null) {
+            //MAKE A CALL
+            makeCall();
+          }
         });
       },
       firstLocalAudioFrame: (elapsed) {
@@ -178,11 +227,17 @@ class _VideoCallPageState extends State<VideoCallPage> {
       },
       leaveChannel: (stats) {
         debugPrint('LOG::onLeaveChannel');
+        callsCollection.doc(widget.call.id).update(
+          {
+            'active': false,
+          },
+        );
         setState(() => _users.clear());
       },
       userJoined: (uid, elapsed) {
         final info = 'LOG::userJoined: $uid';
         debugPrint(info);
+
         setState(
               () => _users.add(
             ChatUser(
@@ -208,6 +263,11 @@ class _VideoCallPageState extends State<VideoCallPage> {
             userToRemove = user;
           }
         }
+        callsCollection.doc(widget.call.id).update(
+          {
+            'active': false,
+          },
+        );
         setState(() => _users.remove(userToRemove));
       },
       firstRemoteAudioFrame: (uid, elapsed) {
@@ -290,6 +350,26 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   void _onSwitchCamera() => _agoraEngine.switchCamera();
+  makeCall() async {
+    DocumentReference callDocRef = callsCollection.doc();
+
+    setState(() {
+      callID = callDocRef.id;
+    });
+    await callDocRef.set(
+      {
+        'id':callDocRef.id,
+        'channel': widget.call.channel,
+        'caller': widget.call.caller,
+        'called': widget.call.called,
+        'active': true,
+        'accepted': false,
+        'rejected': false,
+        'connected': false,
+      },
+    );
+
+  }
 
   List<int> _createLayout(int n) {
     int rows = (sqrt(n).ceil());
@@ -361,42 +441,111 @@ class _VideoCallPageState extends State<VideoCallPage> {
           )
         ],
       ),
-      body: SafeArea(
+      body: Stack (
+        children:[
+          StreamBuilder<DocumentSnapshot>(
+            stream: callsCollection.doc(callID).snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+
+                CallModel call = CallModel(
+                  id: snapshot.data!['id'],
+                  channel: snapshot.data!['channel'],
+                  caller: snapshot.data!['caller'],
+                  called: snapshot.data!['called'],
+                  active: snapshot.data!['active'],
+                  accepted: snapshot.data!['accepted'],
+                  rejected: snapshot.data!['rejected'],
+                  connected: snapshot.data!['connected'],
+                );
+
+                return call.rejected == true
+                    ? const Text("Call Declined")
+                    :  SafeArea(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: OrientationBuilder(
+                            builder: (context, orientation) {
+                              final isPortrait = orientation == Orientation.portrait;
+                              if (_users.isEmpty) {
+                                return const SizedBox();
+                              }
+                              WidgetsBinding.instance.addPostFrameCallback(
+                                    (_) => setState(
+                                        () => _viewAspectRatio = isPortrait ? 2 / 3 : 3 / 2),
+                              );
+                              final layoutViews = _createLayout(_users.length);
+                              return AgoraVideoLayout(
+                                users: _users,
+                                views: layoutViews,
+                                viewAspectRatio: _viewAspectRatio,
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16.0),
+                        child: CallActionsRow(
+                          isMicEnabled: _isMicEnabled,
+                          isVideoEnabled: _isCameraEnabled,
+                          onCallEnd: () => _onCallEnd(context),
+                          onToggleAudio: _onToggleAudio,
+                          onToggleCamera: _onToggleCamera,
+                          onSwitchCamera: _onSwitchCamera,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return const SizedBox.shrink();
+            },
+          ),
+          // if (widget.call.id == null && widget.call.rejected != true)
+          //   _buildIncomingCallOverlay(),
+        ]
+      )
+
+
+
+
+
+    );
+  }
+
+  Widget _buildIncomingCallOverlay() {
+    return Container(
+      color: Colors.black.withOpacity(0.7),
+      child: Center(
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: OrientationBuilder(
-                  builder: (context, orientation) {
-                    final isPortrait = orientation == Orientation.portrait;
-                    if (_users.isEmpty) {
-                      return const SizedBox();
-                    }
-                    WidgetsBinding.instance.addPostFrameCallback(
-                          (_) => setState(
-                              () => _viewAspectRatio = isPortrait ? 2 / 3 : 3 / 2),
-                    );
-                    final layoutViews = _createLayout(_users.length);
-                    return AgoraVideoLayout(
-                      users: _users,
-                      views: layoutViews,
-                      viewAspectRatio: _viewAspectRatio,
-                    );
-                  },
-                ),
-              ),
+            Text(
+              'Incoming Call from Simple App',
+              style: TextStyle(color: Colors.white, fontSize: 18.0),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: CallActionsRow(
-                isMicEnabled: _isMicEnabled,
-                isVideoEnabled: _isCameraEnabled,
-                onCallEnd: () => _onCallEnd(context),
-                onToggleAudio: _onToggleAudio,
-                onToggleCamera: _onToggleCamera,
-                onSwitchCamera: _onSwitchCamera,
-              ),
+            SizedBox(height: 16.0),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton(
+                  onPressed: () {
+                    // Answer call logic
+                  },
+                  child: Text('Answer'),
+                ),
+                SizedBox(width: 16.0),
+                ElevatedButton(
+                  onPressed: () {
+                    // Decline call logic
+                  },
+                  child: Text('Decline'),
+                ),
+              ],
             ),
           ],
         ),
@@ -453,7 +602,7 @@ class AgoraVideoLayout extends StatelessWidget {
       );
     }
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: rowsList,
     );
   }
@@ -461,54 +610,56 @@ class AgoraVideoLayout extends StatelessWidget {
 
 class AgoraVideoView extends StatelessWidget {
   const AgoraVideoView({
-    super.key,
+    Key? key,
     required double viewAspectRatio,
     required ChatUser user,
   })  : _viewAspectRatio = viewAspectRatio,
-        _user = user;
+        _user = user,
+        super(key: key);
 
   final double _viewAspectRatio;
-    final ChatUser _user;
+  final ChatUser _user;
 
   @override
   Widget build(BuildContext context) {
-    return Flexible(
-      child: Padding(
-        padding: const EdgeInsets.all(2.0),
-        child: AspectRatio(
-          aspectRatio: _viewAspectRatio,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.grey.shade900,
-              borderRadius: BorderRadius.circular(8.0),
-              border: Border.all(
-                color: _user.isAudioEnabled ?? false ? Colors.blue : Colors.red,
-                width: 2.0,
-              ),
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: AspectRatio(
+        aspectRatio: _viewAspectRatio,
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.grey.shade200,
+            borderRadius: BorderRadius.circular(16.0),
+            border: Border.all(
+              color: Colors.green, // Customize the border color
+              width: 2.0,
             ),
-            child: Stack(
-              children: [
-                Center(
-                  child: CircleAvatar(
-                    backgroundColor: Colors.grey.shade800,
-                    maxRadius: 18,
-                    child: Icon(
-                      Icons.person,
-                      color: Colors.grey.shade600,
-                      size: 24.0,
-                    ),
+          ),
+          child: Stack(
+            children: [
+              if (_user.isVideoEnabled ?? false)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(16.0),
+                  child: _user.view,
+                ),
+              Positioned(
+                top: 8.0,
+                left: 8.0,
+                child: CircleAvatar(
+                  backgroundColor: Colors.white,
+                  radius: 16.0,
+                  child: Icon(
+                    Icons.person,
+                    color: Colors.grey.shade600,
+                    size: 24.0,
                   ),
                 ),
-                if (_user.isVideoEnabled ?? false)
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8 - 2),
-                    child: _user.view,
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 }
+

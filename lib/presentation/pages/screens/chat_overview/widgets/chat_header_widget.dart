@@ -1,3 +1,4 @@
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:call_app/presentation/common/resources/extensions/datetime_extensions.dart';
 import 'package:call_app/presentation/pages/screens/single_chat/single_chat_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,11 +11,13 @@ class ChatHeaderWidget extends StatelessWidget {
   final String chatName;
   final Stream<DocumentSnapshot<Map<String, dynamic>>> stream;
   final ChatUser user;
+  final ReceivedAction? receivedAction;
 
   const ChatHeaderWidget(
       {required this.chatName,
       required this.stream,
       required this.user,
+        required this.receivedAction,
       Key? key})
       : super(key: key);
 
@@ -36,7 +39,7 @@ class ChatHeaderWidget extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) =>
-                          SingleChatPage(chat!, user),
+                          SingleChatPage(chat!, user,receivedAction),
                     ),
                   );
                 },

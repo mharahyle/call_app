@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:awesome_notifications/awesome_notifications.dart';
 import 'package:call_app/presentation/core/model/chat.dart';
 import 'package:call_app/presentation/pages/screens/chat_overview/chat_overview_controller.dart';
 import 'package:call_app/presentation/pages/screens/chat_overview/widgets/chat_header_widget.dart';
@@ -7,15 +10,19 @@ import 'package:call_app/presentation/widgets/loading.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../main.dart';
+import '../../../core/model/call.dart';
 import '../../../core/model/chat_user.dart';
 import '../Calls_Fragment.dart';
 import '../Status_Fragment.dart';
+import '../video_call/video_call_page.dart';
 
 
 class ChatOverviewPage extends StatefulWidget {
-  final ChatUser user;
+  final ChatUser? user;
+  final ReceivedAction? receivedAction;
 
-  const ChatOverviewPage(this.user, {Key? key}) : super(key: key);
+  const ChatOverviewPage(this.user,this.receivedAction ,{Key? key}) : super(key: key);
 
   @override
   State<ChatOverviewPage> createState() => _ChatOverviewPageState();
@@ -23,6 +30,52 @@ class ChatOverviewPage extends StatefulWidget {
 
 class _ChatOverviewPageState extends State<ChatOverviewPage> {
   final ChatOverviewController _controller = ChatOverviewController();
+  handleNotification() {
+    if (widget.receivedAction != null) {
+      Map userMap = widget.receivedAction!.payload!;
+      ChatUser user = ChatUser(
+          id: userMap['id'],
+          name: userMap['name'],
+          uid:  userMap['uid'],
+          chatIds: [],
+          isAudioEnabled:userMap['name'],
+          isVideoEnabled:userMap['name'],
+          view: null);
+      CallModel call = CallModel(
+        id: userMap['id'],
+        channel: userMap['channel'],
+        caller: userMap['caller'],
+        called: userMap['called'],
+        active: jsonDecode(userMap['active']),
+        accepted: true,
+        rejected: jsonDecode(userMap['rejected']),
+        connected: true,
+      );
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) {
+            return VideoCallPage(
+              appId: appId,
+              token: token,
+              channelName: 'Simple Call App',
+              user:user,
+              call:  call,
+            );
+          },
+        ),
+      );
+    }
+  }
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(milliseconds: 1000)).then(
+          (value) {
+        handleNotification();
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +131,7 @@ class _ChatOverviewPageState extends State<ChatOverviewPage> {
         body: TabBarView(
           children: [
             FutureBuilder(
-                future: _controller.getAllChatsOfUser(widget.user),
+                future: _controller.getAllChatsOfUser(widget.user!),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState != ConnectionState.done) {
                     return const LoadingWidget();
@@ -100,7 +153,7 @@ floatingActionButton: FloatingActionButton(
     ),
             onPressed: () async {
               await Navigator.of(context).push(MaterialPageRoute(
-                  builder: (context) => NewChatPage(widget.user)));
+                  builder: (context) => NewChatPage(widget.user!,widget.receivedAction)));
 
               setState(() {});
             }))
@@ -112,18 +165,18 @@ floatingActionButton: FloatingActionButton(
         ? const Center(child: Text("Start your first conversation!"))
         : RefreshIndicator(
             onRefresh: () async =>
-                await _controller.getAllChatsOfUser(widget.user),
+                await _controller.getAllChatsOfUser(widget.user!),
             child: ListView.builder(
                 itemCount: chats.length,
                 itemBuilder: (context, index) {
                   var chatName =
-                      _controller.getChatName(chats[index], widget.user);
+                      _controller.getChatName(chats[index], widget.user!);
                   var stream = FirebaseFirestore.instance
                       .collection("chats")
                       .doc(chats[index].id)
                       .snapshots();
                   return ChatHeaderWidget(
-                      chatName: chatName, stream: stream, user: widget.user);
+                      chatName: chatName, stream: stream, user: widget.user!, receivedAction: widget.receivedAction,);
                 }));
   }
 }
