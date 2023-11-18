@@ -4,7 +4,7 @@ import 'package:call_app/presentation/pages/onboarding/splash_screen/splash.dart
 import 'package:call_app/presentation/resources/Theme.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-const appId = "548f443b3f7d4a5987b0b1bb7ba5a4d3";
+const appId = "58e47c933da546c7acc40a0fe39b0181";
 const token =  "9242dc01e9524024b6e7482ba7e6528b";
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

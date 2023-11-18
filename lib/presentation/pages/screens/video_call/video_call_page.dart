@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:agora_rtc_engine/rtc_local_view.dart' as rtc_local_view;
 import 'package:agora_rtc_engine/rtc_remote_view.dart' as rtc_remote_view;
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../common/resources/utils.dart';
 import '../../../core/model/chat_user.dart';
@@ -37,7 +38,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
   late final RtcEngine _agoraEngine;
   late final _users = <ChatUser>{};
   late double _viewAspectRatio;
-
+  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
   int? _currentUid;
   bool _isMicEnabled = false;
   bool _isCameraEnabled = false;
@@ -74,6 +75,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
   void initState() {
     _getPermissions();
     _initialize();
+    initNotifications();
     super.initState();
   }
 
@@ -107,11 +109,40 @@ class _VideoCallPageState extends State<VideoCallPage> {
       publishLocalVideo: _isCameraEnabled,
     );
     await _agoraEngine.joinChannel(
-      widget.token,
+      null,
       widget.channelName,
       null,
       0,
       options,
+    );
+  }
+  void initNotifications() {
+    var flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    var initializationSettingsAndroid =
+    AndroidInitializationSettings('app_icon');
+    var initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+    flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  void _showIncomingCallNotification() async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+      'incoming_call_channel',
+      'simple Call App',
+      importance: Importance.high,
+      priority: Priority.high,
+      ticker: 'ticker',
+    );
+
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      'Incoming Call',
+      'You have an incoming call',
+      const NotificationDetails(android: androidPlatformChannelSpecifics),
+      payload: 'incoming_call',
     );
   }
 
@@ -135,6 +166,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
         debugPrint(info);
       },
       joinChannelSuccess: (channel, uid, elapsed) {
+        _showIncomingCallNotification();
         final info = 'LOG::onJoinChannel: $channel, uid: $uid';
         debugPrint(info);
         setState(() {
@@ -183,6 +215,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
       userJoined: (uid, elapsed) {
         final info = 'LOG::userJoined: $uid';
         debugPrint(info);
+
         setState(
               () => _users.add(
             ChatUser(
@@ -453,7 +486,7 @@ class AgoraVideoLayout extends StatelessWidget {
       );
     }
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: rowsList,
     );
   }
@@ -490,7 +523,7 @@ class AgoraVideoView extends StatelessWidget {
               children: [
                 Center(
                   child: CircleAvatar(
-                    backgroundColor: Colors.grey.shade800,
+                    backgroundColor: Colors.white,
                     maxRadius: 18,
                     child: Icon(
                       Icons.person,
