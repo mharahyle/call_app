@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "619494175023",
+    "project_id": "call-app-c3cbf",
+    "storage_bucket": "call-app-c3cbf.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:619494175023:android:81c81fb5763491641471da",
+        "android_client_info": {
+          "package_name": "com.example.call_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDEM1c5DFYRFryT1uCe3ABN8zc0qtz25TY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
