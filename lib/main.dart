@@ -68,10 +68,10 @@ Future<void> main() async {
 }
 
 class MyApp extends StatefulWidget {
- const  MyApp({Key? key}) : super(key: key);
+  const  MyApp({Key? key}) : super(key: key);
 
- static final GlobalKey<NavigatorState> navigatorKey =
- GlobalKey<NavigatorState>();
+  static final GlobalKey<NavigatorState> navigatorKey =
+  GlobalKey<NavigatorState>();
   @override
   State<MyApp> createState() => _MyAppState();
 }
@@ -109,7 +109,7 @@ class _MyAppState extends State<MyApp> {
         return MaterialPageRoute(
             builder: (_) => ChatOverviewPage(
               null,
-               receivedAction,
+              receivedAction,
             ));
     }
     return null;
@@ -125,7 +125,7 @@ class _MyAppState extends State<MyApp> {
     );
   }
 }
-  // This widget is the root of your application.
+// This widget is the root of your application.
 //   @override
 //   Widget build(BuildContext context) {
 //     return  MaterialApp(
