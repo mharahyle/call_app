@@ -48,7 +48,7 @@ dependencies:
   firebase_messaging: ^14.7.4
   awesome_notifications: ^0.8.2
   flutter_hooks: ^0.20.3
-  http: ^1.1.0
+  http: ^0.13.4
 
 dev_dependencies:
   flutter_test:

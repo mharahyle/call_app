@@ -23,6 +23,7 @@ class LoginController {
     return updatedUser;
   }
   // Function to update user information
+
   Future<ChatUser> updateUserInfo(ChatUser userInfo) async {
       var updatedUser = ChatUser(id: userInfo.id, name:userInfo.name, chatIds:userInfo.chatIds, isAudioEnabled: userInfo.isAudioEnabled, isVideoEnabled: userInfo.isVideoEnabled, view: userInfo.view, uid: userInfo.uid, fcmToken: firebaseToken);
       await FirebaseFirestore.instance

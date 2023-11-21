@@ -46,6 +46,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
   late double _viewAspectRatio;
   late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
   int? _currentUid;
+  int? _remoteUid;
   bool _isMicEnabled = false;
   bool _isCameraEnabled = false;
   bool _isJoining = false;
@@ -211,8 +212,9 @@ class _VideoCallPageState extends State<VideoCallPage> {
       userJoined: (uid, elapsed) {
         final info = 'LOG::userJoined: $uid';
         debugPrint(info);
-
+        _remoteUid = uid;
         setState(
+
               () => _users.add(
             ChatUser(
               uid: uid,
@@ -301,25 +303,27 @@ class _VideoCallPageState extends State<VideoCallPage> {
   }
 
   void _onToggleAudio() {
+
     setState(() {
       _isMicEnabled = !_isMicEnabled;
-      for (ChatUser user in _users) {
-        if (user.uid == _currentUid) {
-          user.isAudioEnabled = _isMicEnabled;
-        }
-      }
+      // for (ChatUser user in _users) {
+      //   if (user.uid == _currentUid) {
+      //     user.isAudioEnabled = _isMicEnabled;
+      //   }
+      // }
     });
     _agoraEngine.muteLocalAudioStream(!_isMicEnabled);
   }
 
   void _onToggleCamera() {
+
     setState(() {
       _isCameraEnabled = !_isCameraEnabled;
-      for (ChatUser user in _users) {
-        if (user.uid == _currentUid) {
-          setState(() => user.isVideoEnabled = _isCameraEnabled);
-        }
-      }
+      // for (ChatUser user in _users) {
+      //   if (user.uid == _currentUid) {
+      //     setState(() => user.isVideoEnabled = _isCameraEnabled);
+      //   }
+      // }
     });
     _agoraEngine.muteLocalVideoStream(!_isCameraEnabled);
   }
@@ -375,10 +379,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
         centerTitle: false,
         title: Row(
           children: [
-            const Icon(
-              Icons.meeting_room_rounded,
-              color: Colors.white54,
-            ),
+
             const SizedBox(width: 6.0),
             // const Text(
             //   'Channel name: ',
@@ -397,71 +398,74 @@ class _VideoCallPageState extends State<VideoCallPage> {
             // ),
           ],
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.people_alt_rounded,
-                  color: Colors.white54,
-                ),
-                const SizedBox(width: 6.0),
-                Text(
-                  _users.length.toString(),
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 16.0,
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
+
       ),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: OrientationBuilder(
-                  builder: (context, orientation) {
-                    final isPortrait = orientation == Orientation.portrait;
-                    if (_users.isEmpty) {
-                      return const SizedBox();
-                    }
-                    WidgetsBinding.instance.addPostFrameCallback(
-                          (_) => setState(
-                              () => _viewAspectRatio = isPortrait ? 2 / 3 : 3 / 2),
-                    );
-                    final layoutViews = _createLayout(_users.length);
-                    return AgoraVideoLayout(
-                      users: _users,
-                      views: layoutViews,
-                      viewAspectRatio: _viewAspectRatio,
-                    );
-                  },
+            // Expanded(
+            //   child: Padding(
+            //     padding: const EdgeInsets.all(16.0),
+            //     child: OrientationBuilder(
+            //       builder: (context, orientation) {
+            //         final isPortrait = orientation == Orientation.portrait;
+            //         if (_users.isEmpty) {
+            //           return const SizedBox();
+            //         }
+            //         WidgetsBinding.instance.addPostFrameCallback(
+            //               (_) => setState(
+            //                   () => _viewAspectRatio = isPortrait ? 2 / 3 : 3 / 2),
+            //         );
+            //         final layoutViews = _createLayout(_users.length);
+            //         return AgoraVideoLayout(
+            //           users: _users,
+            //           views: layoutViews,
+            //           viewAspectRatio: _viewAspectRatio,
+            //         );
+            //       },
+            //     ),
+            //   ),
+            // ),
+            Center(
+              child: _remoteVideo(),
+            ),
+            Align(
+              alignment: Alignment.topRight,
+              child: Container(
+                width: 100,
+                height: 150,
+                child: Center(
+                  child:  const rtc_local_view.SurfaceView()
+
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              child: CallActionsRow(
-                isMicEnabled: _isMicEnabled,
-                isVideoEnabled: _isCameraEnabled,
-                onCallEnd: () => _onCallEnd(context),
-                onToggleAudio: _onToggleAudio,
-                onToggleCamera: _onToggleCamera,
-                onSwitchCamera: _onSwitchCamera,
-              ),
-            ),
+
           ],
         ),
       ),
+      bottomNavigationBar:  CallActionsRow(
+        isMicEnabled: _isMicEnabled,
+        isVideoEnabled: _isCameraEnabled,
+        onCallEnd: () => _onCallEnd(context),
+        onToggleAudio: _onToggleAudio,
+        onToggleCamera: _onToggleCamera,
+        onSwitchCamera: _onSwitchCamera,
+      ),
 
           );
+  }
+
+  // Display remote user's video
+  Widget _remoteVideo() {
+    if (_remoteUid != null) {
+      return rtc_remote_view.SurfaceView(uid:_remoteUid!, channelId: widget.channelName, );
+    } else {
+      return Text(
+        'Please wait for remote user to join',
+        textAlign: TextAlign.center,
+      );
+    }
   }
 
   Widget _buildIncomingCallOverlay() {

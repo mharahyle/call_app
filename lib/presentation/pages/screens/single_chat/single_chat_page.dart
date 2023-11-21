@@ -35,11 +35,13 @@ class _SingleChatPageState extends State<SingleChatPage> {
   final SingleChatController _controller = SingleChatController();
   bool _isJoining = false;
   String? firebasetoken ;
+  List<ChatUser> allUsers=[];
   final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
   void _initializeFirebaseMessaging() async{
     await FirebaseMessaging.instance.setAutoInitEnabled(true);
 
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print(message);
       String? title=message.notification!.title;
       String? body=message.notification!.body;
       AwesomeNotifications().createNotification(
@@ -60,13 +62,16 @@ class _SingleChatPageState extends State<SingleChatPage> {
           ]
       );
       AwesomeNotifications().setListeners(onActionReceivedMethod:onActionReceivedMethod );
-      _showIncomingCallOverlay(message.data['callerName']);
+
     }
+
     );
+
 
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
       // Handle when the app is opened by tapping the notification.
       // You can navigate to the call screen here.
+
     });
 
     FirebaseMessaging.onBackgroundMessage(_handleBackgroundMessage);
@@ -82,27 +87,7 @@ class _SingleChatPageState extends State<SingleChatPage> {
    Future<void> onActionReceivedMethod(
       ReceivedAction receivedAction) async {
     if (receivedAction.buttonKeyPressed == "ACCEPT") {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => VideoCallPage(
-            appId: appId,
-            token: token,
-            channelName: 'Simple Call App',
-            user: widget.user,
-            call:  CallModel(
-              id: null,
-              channel: "video${widget.user.id}",
-              caller: widget.user.name,
-              called: widget.user.id,
-              active: null,
-              accepted: null,
-              rejected: null,
-              connected: null,
-            ),
-          ),
-        ),
-      );
-
+  await _joinCall();
 
     }
     if (receivedAction.buttonKeyPressed == "REJECT") {
@@ -121,7 +106,7 @@ class _SingleChatPageState extends State<SingleChatPage> {
         body: jsonEncode(
           <String, dynamic>{
             'notification': <String, dynamic>{
-              'body': 'Dave',
+              'body': widget.user.name,
               'title': 'Incoming Call',
             },
             'priority': 'high',
@@ -130,7 +115,9 @@ class _SingleChatPageState extends State<SingleChatPage> {
               'id': '1',
               'status': 'done'
             },
-            'to': widget.chat.users.where((item) => item.id != widget.user.id).toList().first.fcmToken,
+            'to':allUsers.firstWhere((user) => user.id ==  widget.chat.users.where((item) => item.id != widget.user.id).toList().first.id).fcmToken
+
+           ,
 
           },
         ),
@@ -142,26 +129,61 @@ class _SingleChatPageState extends State<SingleChatPage> {
   }
 
   void _showIncomingCallOverlay(String callerName) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Incoming Call from $callerName'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Answer call logic
-            },
-            child: Text('Answer'),
-          ),
-          TextButton(
-            onPressed: () {
-              // Decline call logic
-            },
-            child: Text('Decline'),
-          ),
-        ],
-      ),
-    );
+    Container(
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              'Incoming Call',
+              style: TextStyle(
+                fontSize: 30,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 50),
+           const CircleAvatar(
+              backgroundImage: NetworkImage('https://png.pngitem.com/pimgs/s/649-6490124_katie-notopoulos-katienotopoulos-i-write-about-tech-round.png'),
+              radius: 60,
+            ),
+            const SizedBox(height: 50),
+            Text(
+              callerName,
+              style: const TextStyle(
+                fontSize: 25,
+                color: Colors.white,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 75),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  icon: const Icon(Icons.call_end,
+                      color: Colors.redAccent),
+                ),
+                const SizedBox(width: 25),
+                IconButton(
+                  onPressed: () {
+                    _joinCall();
+                  },
+                  icon: const Icon(
+                    Icons.call,
+                    color: Colors.green,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+
   }
   Future<void> _handleBackgroundMessage(RemoteMessage message) async {
     // Handle the background message (notification) when the app is in the background
@@ -170,7 +192,7 @@ class _SingleChatPageState extends State<SingleChatPage> {
 
   Future<void> _sendFcmNotification(String? receiverFcmToken, String callerName) async {
     await FirebaseMessaging.instance.sendMessage(
-      to: receiverFcmToken,
+      to: allUsers.firstWhere((user) => user.id ==  widget.chat.users.where((item) => item.id != widget.user.id).toList().first.id).fcmToken,
       data: {
         'type': 'incoming_call',
         'callerName': callerName,
@@ -197,14 +219,27 @@ class _SingleChatPageState extends State<SingleChatPage> {
 
   void _initiateCallAndNotify() async {
     // Send FCM notification to the other device
-    await sendPushNotification();// Get the caller's name
+    //await _sendFcmNotification(null,'Dave');
+    await sendPushNotification();
+    // Get the caller's name
    // await _sendFcmNotification(widget.user.fcmToken, callerName);
     // Make the call
     _joinCall();
 
   }
+  Future<List<ChatUser>> getAllUsers() async {
+   allUsers= (await FirebaseFirestore.instance
+        .collection("users")
+        .orderBy("id", descending: false)
+        .orderBy("name", descending: false)
+        .get())
+        .docs
+        .map((e) => ChatUser.fromJson(e.data()))
+        .toList();
+    return allUsers;
+  }
+
   Future<void> _joinCall() async {
-    setState(() => _isJoining = true);
    // await dotenv.load(fileName: "functions/.env");
     final appId = "548f443b3f7d4a5987b0b1bb7ba5a4d3";
     setState(() => _isJoining = false);
@@ -248,35 +283,7 @@ class _SingleChatPageState extends State<SingleChatPage> {
           const Duration(seconds: 1),
         );
         if (context.mounted) {
-          await
-
-          showModalBottomSheet(
-            context: context,
-            builder: (BuildContext context) {
-              return Container(
-                child: Wrap(
-                  children: <Widget>[
-                    Center(
-                      child:Text('Select a call ')
-                    ),
-                    SizedBox(height: 5),
-                    ListTile(
-                      title: Text('Voice Call'),
-                      onTap: () {
-                        // Handle Option 1
-                        Navigator.pop(context);
-                      },
-                    ),
-                    ListTile(
-
-                      title: Text('Video Call'),
-                      onTap: _initiateCallAndNotify,
-                    )
-                  ],
-                ),
-              );
-            },
-          );
+          _initiateCallAndNotify();
 
         }
       }
@@ -289,6 +296,8 @@ class _SingleChatPageState extends State<SingleChatPage> {
     _initializeFirebaseMessaging();
     // Handle FCM messages
     _handleFcmMessages();
+    getAllUsers();
+
     super.initState();
   }
 
