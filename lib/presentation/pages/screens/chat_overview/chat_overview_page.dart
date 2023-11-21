@@ -38,9 +38,10 @@ class _ChatOverviewPageState extends State<ChatOverviewPage> {
           name: userMap['name'],
           uid:  userMap['uid'],
           chatIds: [],
-          isAudioEnabled:userMap['name'],
-          isVideoEnabled:userMap['name'],
-          view: null);
+          isAudioEnabled:userMap['isAudioEnabled'],
+          isVideoEnabled:userMap['isVideoEnabled'],
+          view: null,
+          fcmToken: userMap['fcmToken']);
       CallModel call = CallModel(
         id: userMap['id'],
         channel: userMap['channel'],
@@ -176,7 +177,7 @@ floatingActionButton: FloatingActionButton(
                       .doc(chats[index].id)
                       .snapshots();
                   return ChatHeaderWidget(
-                      chatName: chatName, stream: stream, user: widget.user!, receivedAction: widget.receivedAction,);
+                      chatName: chatName!, stream: stream, user: widget.user!, receivedAction: widget.receivedAction,);
                 }));
   }
 }

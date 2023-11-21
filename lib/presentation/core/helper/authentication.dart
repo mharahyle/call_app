@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
+import '../../../main.dart';
 import '../../pages/screens/home.dart';
 import '../model/chat_user.dart';
 
@@ -31,7 +32,7 @@ class LoginController {
     try {
       var cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(email: email, password: password);
 
-      var user = ChatUser(id: cred.user?.uid ?? "", name: username, chatIds: <String>[], isAudioEnabled: null, isVideoEnabled: null, view: null, uid: 0);
+      var user = ChatUser(id: cred.user?.uid ?? "", name: username, chatIds: <String>[], isAudioEnabled: null, isVideoEnabled: null, view: null, uid: 0, fcmToken: token);
 
       await FirebaseFirestore.instance
           .collection("users")

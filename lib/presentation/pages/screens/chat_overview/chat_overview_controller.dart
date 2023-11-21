@@ -6,7 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../core/model/chat_user.dart';
 
 class ChatOverviewController {
-  String getChatName(Chat chat, ChatUser user) {
+  String? getChatName(Chat chat, ChatUser user) {
     return chat.users.firstWhere((element) => element.id != user.id).name;
   }
 

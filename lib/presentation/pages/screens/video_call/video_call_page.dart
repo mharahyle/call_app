@@ -12,6 +12,7 @@ import 'package:agora_rtc_engine/rtc_local_view.dart' as rtc_local_view;
 import 'package:agora_rtc_engine/rtc_remote_view.dart' as rtc_remote_view;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../../../main.dart';
 import '../../../common/resources/utils.dart';
 import '../../../core/model/call.dart';
 import '../../../core/model/chat_user.dart';
@@ -50,7 +51,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
   bool _isJoining = false;
   String? callID;
   bool localUserJoined = false;
-  final FirebaseMessaging _firebaseMessaging = FirebaseMessaging.instance;
+
 
 
   Future<void> _getMicPermissions() async {
@@ -85,7 +86,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
     _getPermissions();
     _initialize();
     callID = widget.call.id;
-    _initializeFirebaseMessaging();
+
     super.initState();
   }
 
@@ -96,37 +97,10 @@ class _VideoCallPageState extends State<VideoCallPage> {
     super.dispose();
   }
   // Initialize Firebase Messaging
-  void _initializeFirebaseMessaging() {
-    _firebaseMessaging.getToken().then((token) {
-      print("Firebase Messaging Token: $token");
-      // You can send this token to your server for sending push notifications
-    });
 
-    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      // Handle incoming message (notification)
-      // You can use the message data to determine if it's a call notification
-      // and show the overlay for incoming calls.
-    });
 
-    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      // Handle when the app is opened by tapping the notification.
-      // You can navigate to the call screen here.
-    });
 
-    FirebaseMessaging.onBackgroundMessage(_handleBackgroundMessage);
-
-    _firebaseMessaging.requestPermission(
-      sound: true,
-      badge: true,
-      alert: true,
-      provisional: false,
-    );
-  }
-
-  Future<void> _handleBackgroundMessage(RemoteMessage message) async {
-    // Handle the background message (notification) when the app is in the background
-    print("Handling background message: ${message.messageId}");
-  }
+  // Function to display incoming call overlay
 
   Future<void> _disposeAgora() async {
     await _agoraEngine.leaveChannel();
@@ -193,7 +167,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
               view: const rtc_local_view.SurfaceView(),
             uid: uid,
             name: widget.user.name,
-            chatIds: widget.user.chatIds,
+            chatIds: widget.user.chatIds, fcmToken: widget.user.fcmToken,
             ),
           );
           if (widget.call.id == null) {
@@ -250,6 +224,7 @@ class _VideoCallPageState extends State<VideoCallPage> {
               chatIds: [],
               isAudioEnabled: null,
               isVideoEnabled: null,
+              fcmToken: '',
             ),
           ),
         );
@@ -368,8 +343,12 @@ class _VideoCallPageState extends State<VideoCallPage> {
         'connected': false,
       },
     );
+    // Send FCM notification to the other device
 
   }
+  // Function to initiate a call and send FCM notification
+
+
 
   List<int> _createLayout(int n) {
     int rows = (sqrt(n).ceil());
@@ -441,80 +420,48 @@ class _VideoCallPageState extends State<VideoCallPage> {
           )
         ],
       ),
-      body: Stack (
-        children:[
-          StreamBuilder<DocumentSnapshot>(
-            stream: callsCollection.doc(callID).snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: OrientationBuilder(
+                  builder: (context, orientation) {
+                    final isPortrait = orientation == Orientation.portrait;
+                    if (_users.isEmpty) {
+                      return const SizedBox();
+                    }
+                    WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => setState(
+                              () => _viewAspectRatio = isPortrait ? 2 / 3 : 3 / 2),
+                    );
+                    final layoutViews = _createLayout(_users.length);
+                    return AgoraVideoLayout(
+                      users: _users,
+                      views: layoutViews,
+                      viewAspectRatio: _viewAspectRatio,
+                    );
+                  },
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              child: CallActionsRow(
+                isMicEnabled: _isMicEnabled,
+                isVideoEnabled: _isCameraEnabled,
+                onCallEnd: () => _onCallEnd(context),
+                onToggleAudio: _onToggleAudio,
+                onToggleCamera: _onToggleCamera,
+                onSwitchCamera: _onSwitchCamera,
+              ),
+            ),
+          ],
+        ),
+      ),
 
-                CallModel call = CallModel(
-                  id: snapshot.data!['id'],
-                  channel: snapshot.data!['channel'],
-                  caller: snapshot.data!['caller'],
-                  called: snapshot.data!['called'],
-                  active: snapshot.data!['active'],
-                  accepted: snapshot.data!['accepted'],
-                  rejected: snapshot.data!['rejected'],
-                  connected: snapshot.data!['connected'],
-                );
-
-                return call.rejected == true
-                    ? const Text("Call Declined")
-                    :  SafeArea(
-                  child: Column(
-                    children: [
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: OrientationBuilder(
-                            builder: (context, orientation) {
-                              final isPortrait = orientation == Orientation.portrait;
-                              if (_users.isEmpty) {
-                                return const SizedBox();
-                              }
-                              WidgetsBinding.instance.addPostFrameCallback(
-                                    (_) => setState(
-                                        () => _viewAspectRatio = isPortrait ? 2 / 3 : 3 / 2),
-                              );
-                              final layoutViews = _createLayout(_users.length);
-                              return AgoraVideoLayout(
-                                users: _users,
-                                views: layoutViews,
-                                viewAspectRatio: _viewAspectRatio,
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16.0),
-                        child: CallActionsRow(
-                          isMicEnabled: _isMicEnabled,
-                          isVideoEnabled: _isCameraEnabled,
-                          onCallEnd: () => _onCallEnd(context),
-                          onToggleAudio: _onToggleAudio,
-                          onToggleCamera: _onToggleCamera,
-                          onSwitchCamera: _onSwitchCamera,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-              return const SizedBox.shrink();
-            },
-          ),
-          // if (widget.call.id == null && widget.call.rejected != true)
-          //   _buildIncomingCallOverlay(),
-        ]
-      )
-
-
-
-
-
-    );
+          );
   }
 
   Widget _buildIncomingCallOverlay() {

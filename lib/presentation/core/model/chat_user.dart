@@ -8,7 +8,8 @@ class ChatUser {
     required this.chatIds,
     required this.isAudioEnabled,
     required this.isVideoEnabled,
-    required this.view
+    required this.view,
+    required this.fcmToken
 
   });
   final int uid;
@@ -18,6 +19,7 @@ class ChatUser {
  late final bool? isAudioEnabled;
 late final  bool? isVideoEnabled;
  late final  Widget? view;
+ late final String? fcmToken;
   factory ChatUser.fromJson(Map<String, dynamic> json) {
     return ChatUser(
       id: json["id"] ?? "",
@@ -29,6 +31,7 @@ late final  bool? isVideoEnabled;
       isVideoEnabled: json['isVideoEnabled'] ?? null,
       view:  json['view'] ?? null,
       uid: json["uid"] ?? 0,
+      fcmToken: json["fcmToken"] ?? "",
     );
   }
 
@@ -39,6 +42,7 @@ late final  bool? isVideoEnabled;
     "isAudioEnabled":isAudioEnabled,
     "isVideoEnabled":isVideoEnabled,
     "view":view,
-    "uid":uid
+    "uid":uid,
+    "fcmToken":fcmToken
   };
 }
